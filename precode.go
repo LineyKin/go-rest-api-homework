@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -58,7 +59,30 @@ func getTastks(w http.ResponseWriter, r *http.Request) {
 
 	// записываем сам контент, а именно сериализованый json объект
 	w.Write(resp)
+}
 
+// обработчик для добавления задачи
+// пример для постмана:
+// {"id": "3", "description": "Выпить чай", "note": "таёжный сбор, 2 ч. ложки, 5 мин.", "applications":["кружка", "заварной чайник"]}
+func postTastks(w http.ResponseWriter, r *http.Request) {
+	var task Task
+	var buf bytes.Buffer
+
+	_, err := buf.ReadFrom(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err = json.Unmarshal(buf.Bytes(), &task); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	tasks[task.ID] = task
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
 }
 
 func main() {
@@ -68,9 +92,9 @@ func main() {
 	// http://localhost:8080/tasks
 	r.Get("/tasks", getTastks)
 
-	// здесь регистрируйте ваши обработчики
-
-	// ...
+	// регистрируем в роутере эндпоинт `/tasks` с методом POST, для которого используется обработчик `postTastks`
+	// http://localhost:8080/tasks
+	r.Post("/tasks", postTastks)
 
 	if err := http.ListenAndServe(":8080", r); err != nil {
 		fmt.Printf("Ошибка при запуске сервера: %s", err.Error())
