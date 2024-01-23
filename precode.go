@@ -62,8 +62,6 @@ func getTastks(w http.ResponseWriter, r *http.Request) {
 }
 
 // обработчик для добавления задачи
-// пример для постмана:
-// {"id": "3", "description": "Выпить чай", "note": "таёжный сбор, 2 ч. ложки, 5 мин.", "applications":["кружка", "заварной чайник"]}
 func postTastks(w http.ResponseWriter, r *http.Request) {
 	var task Task
 	var buf bytes.Buffer
@@ -114,6 +112,37 @@ func getTask(w http.ResponseWriter, r *http.Request) {
 	w.Write(resp)
 }
 
+func deleteTask(w http.ResponseWriter, r *http.Request) {
+	// забираем параметр из урла
+	id := chi.URLParam(r, "id")
+
+	// нас интересует лишь само существование задачи
+	_, ok := tasks[id]
+	if !ok {
+		http.Error(w, "Задача не найдена", http.StatusNotFound)
+		return
+	}
+
+	// удаляем задачу из мапы
+	delete(tasks, id)
+
+	// сериализуем оставшиеся данные
+	resp, err := json.Marshal(tasks)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// записываем в ответ тип контента в заголовок
+	w.Header().Set("Content-Type", "application/json")
+
+	// записываем в ответ статус 200 OK
+	w.WriteHeader(http.StatusOK)
+
+	// записываем в ответ сам контент, а именно сериализованый json объект
+	w.Write(resp)
+}
+
 func main() {
 	r := chi.NewRouter()
 
@@ -123,11 +152,17 @@ func main() {
 
 	// регистрируем в роутере эндпоинт `/tasks` с методом POST, для которого используется обработчик `postTastks`
 	// http://localhost:8080/tasks
+	// пример для постмана:
+	// {"id": "3", "description": "Выпить чай", "note": "таёжный сбор, 2 ч. ложки, 5 мин.", "applications":["кружка", "заварной чайник"]}
 	r.Post("/tasks", postTastks)
 
 	// регистрируем в роутере эндпоинт `/task/{id}` с методом GET, для которого используется обработчик `getTask`
 	// http://localhost:8080/task/2
 	r.Get("/task/{id}", getTask)
+
+	// регистрируем в роутере эндпоинт `/tasks/{id}` с методом DELETE, для которого используется обработчик `deleteTask`
+	// http://localhost:8080/tasks/3
+	r.Delete("/tasks/{id}", deleteTask)
 
 	if err := http.ListenAndServe(":8080", r); err != nil {
 		fmt.Printf("Ошибка при запуске сервера: %s", err.Error())
