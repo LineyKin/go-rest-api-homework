@@ -51,13 +51,13 @@ func getTastks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// записываем тип контента в заголовок
+	// записываем в ответ тип контента в заголовок
 	w.Header().Set("Content-Type", "application/json")
 
-	// записываем статус 200 OK
+	// записываем в ответ статус 200 OK
 	w.WriteHeader(http.StatusOK)
 
-	// записываем сам контент, а именно сериализованый json объект
+	// записываем в ответ сам контент, а именно сериализованый json объект
 	w.Write(resp)
 }
 
@@ -85,6 +85,35 @@ func postTastks(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
+// обработчик для выгрузки конкретной задачи с заданым id
+func getTask(w http.ResponseWriter, r *http.Request) {
+
+	// забираем параметр из урла
+	id := chi.URLParam(r, "id")
+
+	task, ok := tasks[id]
+	if !ok {
+		http.Error(w, "Задача не найдена", http.StatusNoContent)
+		return
+	}
+
+	// сериализуем полученные данные
+	resp, err := json.Marshal(task)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// записываем в ответ тип контента в заголовок
+	w.Header().Set("Content-Type", "application/json")
+
+	// записываем в ответ статус 200 OK
+	w.WriteHeader(http.StatusOK)
+
+	// записываем в ответ сам контент, а именно сериализованый json объект
+	w.Write(resp)
+}
+
 func main() {
 	r := chi.NewRouter()
 
@@ -95,6 +124,10 @@ func main() {
 	// регистрируем в роутере эндпоинт `/tasks` с методом POST, для которого используется обработчик `postTastks`
 	// http://localhost:8080/tasks
 	r.Post("/tasks", postTastks)
+
+	// регистрируем в роутере эндпоинт `/task/{id}` с методом GET, для которого используется обработчик `getTask`
+	// http://localhost:8080/task/2
+	r.Get("/task/{id}", getTask)
 
 	if err := http.ListenAndServe(":8080", r); err != nil {
 		fmt.Printf("Ошибка при запуске сервера: %s", err.Error())
