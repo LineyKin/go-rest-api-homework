@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -58,11 +59,16 @@ func getTastks(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 
 	// записываем в ответ сам контент, а именно сериализованый json объект
-	w.Write(resp)
+	// w.Write возвращает 2 ответа: кол-во байтов и ошибку
+	// тут и других местах, где вызывается метод, проверим на ошибку
+	_, err = w.Write(resp)
+	if err != nil {
+		log.Println(err)
+	}
 }
 
 // обработчик для добавления задачи
-func postTastks(w http.ResponseWriter, r *http.Request) {
+func postTasks(w http.ResponseWriter, r *http.Request) {
 	var task Task
 	var buf bytes.Buffer
 
@@ -74,6 +80,13 @@ func postTastks(w http.ResponseWriter, r *http.Request) {
 
 	if err = json.Unmarshal(buf.Bytes(), &task); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// если элемент c id = task.ID уже есть, вернём ошибку
+	_, ok := tasks[task.ID]
+	if ok {
+		http.Error(w, "Элемент с таким id уже существует", http.StatusBadRequest)
 		return
 	}
 
@@ -91,14 +104,14 @@ func getTask(w http.ResponseWriter, r *http.Request) {
 
 	task, ok := tasks[id]
 	if !ok {
-		http.Error(w, "Задача не найдена", http.StatusNoContent)
+		http.Error(w, "Задача не найдена", http.StatusNotFound)
 		return
 	}
 
 	// сериализуем полученные данные
 	resp, err := json.Marshal(task)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -109,7 +122,10 @@ func getTask(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 
 	// записываем в ответ сам контент, а именно сериализованый json объект
-	w.Write(resp)
+	_, err = w.Write(resp)
+	if err != nil {
+		log.Println(err)
+	}
 }
 
 func deleteTask(w http.ResponseWriter, r *http.Request) {
@@ -127,7 +143,7 @@ func deleteTask(w http.ResponseWriter, r *http.Request) {
 	delete(tasks, id)
 
 	// сериализуем оставшиеся данные
-	resp, err := json.Marshal(tasks)
+	_, err := json.Marshal(tasks)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -138,9 +154,6 @@ func deleteTask(w http.ResponseWriter, r *http.Request) {
 
 	// записываем в ответ статус 200 OK
 	w.WriteHeader(http.StatusOK)
-
-	// записываем в ответ сам контент, а именно сериализованый json объект
-	w.Write(resp)
 }
 
 func main() {
@@ -154,11 +167,11 @@ func main() {
 	// http://localhost:8080/tasks
 	// пример для постмана:
 	// {"id": "3", "description": "Выпить чай", "note": "таёжный сбор, 2 ч. ложки, 5 мин.", "applications":["кружка", "заварной чайник"]}
-	r.Post("/tasks", postTastks)
+	r.Post("/tasks", postTasks)
 
-	// регистрируем в роутере эндпоинт `/task/{id}` с методом GET, для которого используется обработчик `getTask`
-	// http://localhost:8080/task/2
-	r.Get("/task/{id}", getTask)
+	// регистрируем в роутере эндпоинт `/tasks/{id}` с методом GET, для которого используется обработчик `getTask`
+	// http://localhost:8080/tasks/2
+	r.Get("/tasks/{id}", getTask)
 
 	// регистрируем в роутере эндпоинт `/tasks/{id}` с методом DELETE, для которого используется обработчик `deleteTask`
 	// http://localhost:8080/tasks/3
