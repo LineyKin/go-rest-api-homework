@@ -142,13 +142,6 @@ func deleteTask(w http.ResponseWriter, r *http.Request) {
 	// удаляем задачу из мапы
 	delete(tasks, id)
 
-	// сериализуем оставшиеся данные
-	_, err := json.Marshal(tasks)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
 	// записываем в ответ тип контента в заголовок
 	w.Header().Set("Content-Type", "application/json")
 
